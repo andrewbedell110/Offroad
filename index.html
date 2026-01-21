@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Off-Road Dashboard</title>
+    <style>
+        /* --- THEME & TYPOGRAPHY --- */
+        :root {
+            --bg-color: #f0f2f5;
+            --card-bg: #ffffff;
+            --text-primary: #333333;
+            --text-secondary: #8e8e93;
+            --accent-blue: #007aff;
+            --accent-red: #ff3b30;
+            --accent-yellow: #ffcc00;
+            --gauge-tick: #333;
+        }
+
+        body {
+            margin: 0; padding: 20px;
+            background-color: var(--bg-color); color: var(--text-primary);
+            font-family: "Avenir Next", -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
+            overflow: hidden; width: 100vw; height: 100vh; box-sizing: border-box;
+            display: flex; align-items: center; justify-content: center;
+        }
+
+        /* --- LAYOUT GRID --- */
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: 1.4fr 1fr;
+            grid-template-rows: 1fr;
+            gap: 20px;
+            width: 100%; height: 100%; max-height: 450px;
+        }
+
+        /* --- CARDS --- */
+        .card {
+            background: var(--card-bg); border-radius: 24px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.08);
+            padding: 15px; position: relative; overflow: hidden;
+        }
+
+        /* --- LEFT PANEL --- */
+        .left-panel { display: grid; grid-template-rows: 2fr 1fr; gap: 15px; }
+        .gauges-row { display: flex; justify-content: space-between; align-items: center; }
+
+        /* --- GAUGE STYLES --- */
+        .gauge-container { width: 48%; aspect-ratio: 1/1; position: relative; }
+        svg.gauge { width: 100%; height: 100%; }
+        .gauge-tick { stroke: var(--gauge-tick); stroke-linecap: round; }
+        .gauge-text { font-size: 6px; font-weight: 600; fill: var(--text-secondary); text-anchor: middle; dominant-baseline: middle; }
+        .zone-yellow { fill: none; stroke: var(--accent-yellow); stroke-width: 6; opacity: 0.5; }
+        .zone-red { fill: none; stroke: var(--accent-red); stroke-width: 6; opacity: 0.5; }
+
+        .car-icon {
+            position: absolute; top: 50%; left: 50%;
+            transform: translate(-50%, -50%); /* Centers the element */
+            transition: transform 0.1s cubic-bezier(0.1, 0.7, 1.0, 0.1); /* Smooth movement */
+            z-index: 2;
+        }
+        #roll-car { width: 50%; }
+        #pitch-car { width: 85%; }
+        
+        .gauge-title {
+            position: absolute; bottom: 18%; left: 50%; transform: translateX(-50%);
+            font-size: 0.8rem; font-weight: 700; color: var(--text-secondary); letter-spacing: 1px; z-index: 3;
+        }
+
+        /* --- INFO BAR --- */
+        .info-bar { display: flex; justify-content: space-between; align-items: center; padding: 0 15px; }
+        .speed-display { display: flex; align-items: baseline; }
+        .speed-val { font-size: 3rem; font-weight: 800; line-height: 1; }
+        .speed-unit { font-size: 0.9rem; color: var(--text-secondary); margin-left: 5px; font-weight: 600; }
+        .gps-display { text-align: right; font-family: "Menlo", monospace; font-size: 0.75rem; color: var(--text-secondary); line-height: 1.4; }
+
+        /* --- RIGHT PANEL --- */
+        .right-panel { display: flex; flex-direction: column; gap: 15px; }
+        .buttons-row { display: flex; justify-content: flex-end; gap: 10px; }
+        
+        .action-btn {
+            background: #fff; border: 1px solid #e0e0e0; color: var(--accent-blue);
+            padding: 10px 15px; border-radius: 12px; font-weight: 600; font-size: 0.85rem;
+            cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.05); transition: all 0.1s;
+        }
+        .action-btn.primary { background: var(--accent-blue); color: white; border: none; }
+        .action-btn:active { transform: scale(0.96); }
+
+        /* --- RHI GRAPH --- */
+        .graph-wrapper {
+            flex-grow: 1; position: relative; background: #fafafa;
+            border-radius: 16px; border: 1px solid #eee; overflow: hidden;
+        }
+        canvas#rhiGraph { width: 100%; height: 100%; display: block; }
+    </style>
+</head>
+<body>
+
+    <div class="dashboard-grid">
+        <div class="left-panel">
+            <div class="card gauges-row">
+                 <div class="gauge-container">
+                    <svg class="gauge" viewBox="0 0 100 100" id="roll-svg"></svg>
+                    <img src="4runner-rear-trans.png" class="car-icon" id="roll-car">
+                    <div class="gauge-title">ROLL</div>
+                </div>
+                <div class="gauge-container">
+                    <svg class="gauge" viewBox="0 0 100 100" id="pitch-svg"></svg>
+                    <img src="4runner-side-trans.png" class="car-icon" id="pitch-car">
+                    <div class="gauge-title">PITCH</div>
+                </div>
+            </div>
+
+            <div class="card info-bar">
+                <div class="speed-display">
+                    <span class="speed-val" id="speedValue">0</span>
+                    <span class="speed-unit">MPH</span>
+                </div>
+                <div class="gps-display">
+                    <div id="lat">Waiting for GPS...</div>
+                    <div id="lon">--</div>
+                    <div style="color: var(--accent-red); margin-top:2px;">Hard Hits: <span id="hits">0</span></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="right-panel">
+            <div class="buttons-row">
+                <button class="action-btn" onclick="tareLevel()">Tare Level</button>
+                <button class="action-btn primary" onclick="startApp()">Start</button>
+            </div>
+            <div class="graph-wrapper">
+                <canvas id="rhiGraph"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- CONFIGURATION ---
+        const yellowThreshold = 30; 
+        const redThreshold = 40;    
+        const hardHitThreshold = 18; // m/s^2
+
+        // --- GLOBAL VARIABLES ---
+        let tarePitch = 0;
+        let tareRoll = 0;
+        let hardHitCount = 0;
+        let isRunning = false;
+        
+        // RHI Graph Data
+        const maxDataPoints = 300; // 5 seconds @ 60fps (approx)
+        let rhiData = new Array(maxDataPoints).fill(0);
+
+
+        // --- 1. SENSOR LOGIC (IOS & ANDROID) ---
+        function startApp() {
+            if (isRunning) return;
+
+            // 1. Request Wake Lock (Keep screen on)
+            if ('wakeLock' in navigator) {
+                navigator.wakeLock.request('screen').catch(err => console.log('Wake Lock error:', err));
+            }
+
+            // 2. Request Motion Permissions (iOS 13+)
+            if (typeof DeviceMotionEvent.requestPermission === 'function') {
+                DeviceMotionEvent.requestPermission()
+                    .then(permissionState => {
+                        if (permissionState === 'granted') {
+                            enableSensors();
+                        } else {
+                            alert("Permission denied. Reload and try again.");
+                        }
+                    })
+                    .catch(console.error);
+            } else {
+                // Non-iOS 13+ devices
+                enableSensors();
+            }
+        }
+
+        function enableSensors() {
+            isRunning = true;
+            window.addEventListener('deviceorientation', handleOrientation);
+            window.addEventListener('devicemotion', handleMotion);
+            
+            // Start GPS
+            if (navigator.geolocation) {
+                navigator.geolocation.watchPosition(updateGPS, handleError, {
+                    enableHighAccuracy: true,
+                    timeout: 5000,
+                    maximumAge: 0
+                });
+            }
+            
+            // Start Animation Loop for Graph
+            requestAnimationFrame(updateGraphLoop);
+        }
+
+        function handleOrientation(event) {
+            // Beta is Pitch (front-to-back), Gamma is Roll (left-to-right)
+            let pitch = event.beta || 0;
+            let roll = event.gamma || 0;
+
+            // Apply Tare
+            const calibratedPitch = pitch - tarePitch;
+            const calibratedRoll = roll - tareRoll;
+
+            // Rotate Images
+            // Note: CSS rotate() uses degrees. 
+            // We translate -50% -50% to keep it centered, then rotate.
+            document.getElementById('pitch-car').style.transform = 
+                `translate(-50%, -50%) rotate(${-calibratedPitch}deg)`; 
+            
+            document.getElementById('roll-car').style.transform = 
+                `translate(-50%, -50%) rotate(${calibratedRoll}deg)`;
+        }
+
+        function tareLevel() {
+            // Capture current temporary values as "Zero"
+            // We listen to the next event to set the tare
+            window.addEventListener('deviceorientation', setTareOnce);
+        }
+
+        function setTareOnce(event) {
+            tarePitch = event.beta || 0;
+            tareRoll = event.gamma || 0;
+            alert("Level Tared!");
+            window.removeEventListener('deviceorientation', setTareOnce);
+        }
+
+
+        // --- 2. RHI / ACCELEROMETER LOGIC ---
+        function handleMotion(event) {
+            // Calculate total G-force (ignoring gravity approx)
+            const x = event.acceleration.x || 0;
+            const y = event.acceleration.y || 0;
+            const z = event.acceleration.z || 0;
+
+            // Magnitude vector
+            const magnitude = Math.sqrt(x*x + y*y + z*z);
+            
+            // Add to data array (push new, remove old)
+            rhiData.push(magnitude);
+            if(rhiData.length > maxDataPoints) rhiData.shift();
+
+            // Check Hard Hits
+            if (magnitude > hardHitThreshold) {
+                // Simple debounce: only count if previous wasn't also a hit (prevent double count)
+                if (rhiData[rhiData.length - 2] < hardHitThreshold) {
+                    hardHitCount++;
+                    document.getElementById('hits').innerText = hardHitCount;
+                }
+            }
+        }
+
+
+        // --- 3. GPS LOGIC ---
+        function updateGPS(position) {
+            const lat = position.coords.latitude;
+            const lon = position.coords.longitude;
+            let speedMps = position.coords.speed || 0; // Meters per second
+            
+            // Convert to MPH
+            let speedMph = (speedMps * 2.23694).toFixed(0);
+
+            document.getElementById('speedValue').innerText = speedMph;
+            
+            // Format Coordinates (DMS-ish)
+            document.getElementById('lat').innerText = `N ${lat.toFixed(5)}`;
+            document.getElementById('lon').innerText = `W ${Math.abs(lon).toFixed(5)}`;
+        }
+
+        function handleError(error) {
+            console.log("GPS Error: " + error.message);
+        }
+
+
+        // --- 4. CANVAS GRAPH RENDERER ---
+        const canvas = document.getElementById('rhiGraph');
+        const ctx = canvas.getContext('2d');
+
+        function resizeCanvas() {
+            const dpr = window.devicePixelRatio || 1;
+            const rect = canvas.parentElement.getBoundingClientRect();
+            canvas.width = rect.width * dpr;
+            canvas.height = rect.height * dpr;
+            ctx.scale(dpr, dpr);
+            canvas.logicalWidth = rect.width;
+            canvas.logicalHeight = rect.height;
+        }
+        window.addEventListener('resize', resizeCanvas);
+        setTimeout(resizeCanvas, 500);
+
+        function updateGraphLoop() {
+            drawGraph();
+            requestAnimationFrame(updateGraphLoop);
+        }
+
+        function drawGraph() {
+            const w = canvas.logicalWidth;
+            const h = canvas.logicalHeight;
+            if(!w || !h) return;
+
+            ctx.clearRect(0, 0, w, h);
+
+            // Draw Zones
+            const yScale = h / 20; // 0 to 20 scale
+            
+            // Green Zone (0-8)
+            ctx.fillStyle = "rgba(52, 199, 89, 0.1)";
+            ctx.fillRect(0, h - (8 * yScale), w, 8 * yScale);
+            // Yellow Zone (8-16)
+            ctx.fillStyle = "rgba(255, 204, 0, 0.1)";
+            ctx.fillRect(0, h - (16 * yScale), w, 8 * yScale);
+            // Red Zone (16-20)
+            ctx.fillStyle = "rgba(255, 59, 48, 0.1)";
+            ctx.fillRect(0, 0, w, 4 * yScale);
+
+            // Draw Data Line
+            ctx.strokeStyle = "#333";
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            
+            // Map data array to canvas width
+            // We want the newest data on the RIGHT
+            const step = w / maxDataPoints;
+            
+            for (let i = 0; i < rhiData.length; i++) {
+                const x = i * step;
+                // Clamp value to 20 max for graph
+                const val = Math.min(rhiData[i], 20);
+                const y = h - (val * yScale);
+                
+                if (i === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            }
+            ctx.stroke();
+
+            // Axis Text
+            ctx.fillStyle = "#8e8e93";
+            ctx.font = "10px sans-serif";
+            ctx.textAlign = "right";
+            ctx.fillText("20", 20, (h - 20*yScale) + 10);
+            ctx.fillText("10", 20, (h - 10*yScale) + 3);
+            
+            ctx.textAlign = "center";
+            ctx.fillText("Now", w - 20, h - 5);
+        }
+
+        // --- 5. INITIALIZE GAUGES (SVG) ---
+        // (Same SVG logic as before)
+        const SVG_NS = "http://www.w3.org/2000/svg";
+        const cx = 50, cy = 50, radius = 45;
+
+        function polarToCartesian(centerX, centerY, radius, angleInDegrees) {
+            var angleInRadians = (angleInDegrees-90) * Math.PI / 180.0;
+            return { x: centerX + (radius * Math.cos(angleInRadians)), y: centerY + (radius * Math.sin(angleInRadians)) };
+        }
+        function describeArc(x, y, radius, startAngle, endAngle){
+            var start = polarToCartesian(x, y, radius, endAngle);
+            var end = polarToCartesian(x, y, radius, startAngle);
+            var largeArcFlag = endAngle - startAngle <= 180 ? "0" : "1";
+            return ["M", start.x, start.y, "A", radius, radius, 0, largeArcFlag, 0, end.x, end.y].join(" ");
+        }
+
+        function drawGaugeBackground(svgId) {
+            const svg = document.getElementById(svgId);
+            const zoneRadius = radius - 3;
+            
+            // Yellow Zones (-red to -yellow, and yellow to red)
+            const yellowPath = document.createElementNS(SVG_NS, "path");
+            yellowPath.setAttribute("class", "zone-yellow");
+            const yellowD = describeArc(cx, cy, zoneRadius, -redThreshold, -yellowThreshold) + " " + describeArc(cx, cy, zoneRadius, yellowThreshold, redThreshold);
+            yellowPath.setAttribute("d", yellowD);
+            svg.appendChild(yellowPath);
+
+            // Red Zones
+            const redPath = document.createElementNS(SVG_NS, "path");
+            redPath.setAttribute("class", "zone-red");
+            const redD = describeArc(cx, cy, zoneRadius, -60, -redThreshold) + " " + describeArc(cx, cy, zoneRadius, redThreshold, 60);
+            redPath.setAttribute("d", redD);
+            svg.appendChild(redPath);
+
+            // Ticks
+            for (let i = -60; i <= 60; i += 5) {
+                const start = polarToCartesian(cx, cy, radius, i);
+                let tickLen = (i % 15 === 0) ? 6 : 3; 
+                const end = polarToCartesian(cx, cy, radius - tickLen, i);
+                const line = document.createElementNS(SVG_NS, "line");
+                line.setAttribute("x1", start.x); line.setAttribute("y1", start.y);
+                line.setAttribute("x2", end.x); line.setAttribute("y2", end.y);
+                line.setAttribute("class", "gauge-tick");
+                line.setAttribute("stroke-width", (i % 15 === 0 || i === 0) ? "1.5" : "0.5");
+                svg.appendChild(line);
+
+                if (i !== 0 && i % 15 === 0) {
+                     const textPos = polarToCartesian(cx, cy, radius - 12, i);
+                     const text = document.createElementNS(SVG_NS, "text");
+                     text.setAttribute("x", textPos.x); text.setAttribute("y", textPos.y + 1);
+                     text.setAttribute("class", "gauge-text");
+                     text.textContent = Math.abs(i);
+                     text.setAttribute("transform", `rotate(${i}, ${textPos.x}, ${textPos.y})`);
+                     svg.appendChild(text);
+                }
+            }
+        }
+        drawGaugeBackground('pitch-svg');
+        drawGaugeBackground('roll-svg');
+    </script>
+</body>
+</html>

@@ -215,17 +215,31 @@
                 `translate(-50%, -50%) rotate(${calibratedRoll}deg)`;
         }
 
+       // --- UPDATED TARE LOGIC ---
         function tareLevel() {
-            // Capture current temporary values as "Zero"
-            // We listen to the next event to set the tare
-            window.addEventListener('deviceorientation', setTareOnce);
+            const btn = document.querySelector('button[onclick="tareLevel()"]');
+            
+            // Visual feedback
+            btn.innerText = "Steady...";
+            btn.style.backgroundColor = "#ffcc00"; // Turn yellow temporarily
+            
+            // Wait 1 second (1000ms) for phone to settle
+            setTimeout(() => {
+                // Add a one-time listener that removes itself immediately
+                window.addEventListener('deviceorientation', function handler(event) {
+                    tarePitch = event.beta || 0;
+                    tareRoll = event.gamma || 0;
+                    
+                    // Stop listening
+                    window.removeEventListener('deviceorientation', handler);
+                    
+                    // Reset button
+                    btn.innerText = "Tare Level";
+                    btn.style.backgroundColor = "#fff"; // Back to white
+                    
+                }, { once: true }); // {once: true} auto-removes the listener!
+            }, 1000);
         }
-
-        function setTareOnce(event) {
-            tarePitch = event.beta || 0;
-            tareRoll = event.gamma || 0;
-            alert("Level Tared!");
-            window.removeEventListener('deviceorientation', setTareOnce);
         }
 
 

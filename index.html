@@ -23,7 +23,8 @@
             font-family: "Avenir Next", -apple-system, system-ui, BlinkMacSystemFont, Roboto, sans-serif;
             overflow: hidden; 
             width: 100vw; 
-            height: 100dvh; /* Fixes Safari bottom bar issue */
+            /* Dynamic viewport height fixes Safari bottom bar issues */
+            height: 100dvh; 
         }
 
         /* --- PORTRAIT WARNING --- */
@@ -84,12 +85,13 @@
         /* --- GAUGE STYLES --- */
         .gauge-wrapper {
             position: relative;
-            width: 42vh; height: 42vh;
+            /* Adaptive size for standard phones */
+            width: 40vh; height: 40vh;
             max-width: 45vw; max-height: 45vw;
         }
         svg.gauge { width: 100%; height: 100%; overflow: visible; }
         
-        /* Digital Value at TOP Edge */
+        /* NUMBERS AT TOP EDGE */
         .gauge-value {
             position: absolute; top: 0%; left: 50%; transform: translateX(-50%);
             font-size: 2.2rem; font-weight: 800; font-variant-numeric: tabular-nums;
@@ -102,9 +104,11 @@
             z-index: 4;
         }
 
-        /* Car Images */
+        /* CAR IMAGES: LARGER & LOWER */
         .car-icon {
-            position: absolute; top: 60%; left: 50%;
+            position: absolute; 
+            top: 60%; /* Moved down */
+            left: 50%;
             transform: translate(-50%, -50%);
             transition: transform 0.1s cubic-bezier(0.1, 0.7, 1.0, 0.1);
             z-index: 2; pointer-events: none;
@@ -120,7 +124,8 @@
         /* --- PAGE 2: WIDE GRAPH --- */
         .page-2-layout {
             display: grid;
-            grid-template-columns: 3fr 1fr; /* Wide Graph, Thin Info */
+            /* 3fr Graph, 1fr Info = Wide Graph, Thin Info Box */
+            grid-template-columns: 3fr 1fr; 
             gap: 15px; height: 100%;
         }
 
@@ -248,7 +253,10 @@
 
     <script>
         // --- CONFIGURATION ---
-        // Direction Multiplier (-1 flips direction)
+        // INVERTED: -1 flips the direction
+        // For Vertical Landscape Mount:
+        // BETA (X-Axis) maps to ROLL
+        // GAMMA (Y-Axis) maps to PITCH
         const rollDirection = -1;  
         const pitchDirection = -1; 
 
@@ -317,13 +325,12 @@
         }
 
         function handleOrientation(event) {
-            let rawBeta = event.beta || 0;
-            let rawGamma = event.gamma || 0;
+            let rawBeta = event.beta || 0;  // Top/Bottom Axis
+            let rawGamma = event.gamma || 0; // Left/Right Axis
 
-            // --- AXIS SWAP LOGIC ---
-            // Beta (Front/Back tilt) -> Maps to Vehicle Roll
-            // Gamma (Left/Right tilt) -> Maps to Vehicle Pitch
-            // (Used when phone is mounted flat or in specific orientations)
+            // --- AXIS SWAP LOGIC (Vertical Landscape) ---
+            // Beta -> Roll
+            // Gamma -> Pitch
             
             let currentRoll = (rawBeta - tareRoll) * rollDirection;
             let currentPitch = (rawGamma - tarePitch) * pitchDirection;
@@ -362,14 +369,13 @@
             setTimeout(() => {
                 window.addEventListener('deviceorientation', function handler(event) {
                     
-                    // Capture raw values based on the same mapping!
-                    // tareRoll captures Beta, tarePitch captures Gamma
+                    // Capture raw values based on the same SWAPPED mapping!
                     tareRoll = event.beta || 0;
                     tarePitch = event.gamma || 0;
                     
                     window.removeEventListener('deviceorientation', handler);
                     
-                    // Force Zero Visuals
+                    // FORCE UPDATE VISUALS IMMEDIATELY (Prevents Sticky Image)
                     document.getElementById('roll-text').innerText = "0°";
                     document.getElementById('pitch-text').innerText = "0°";
                     document.getElementById('roll-car').style.transform = "translate(-50%, -50%) rotate(0deg)";

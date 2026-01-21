@@ -5,11 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Off-Road Dashboard</title>
     <style>
-        /* --- THEME & TYPOGRAPHY --- */
+        /* --- THEME & RESET --- */
         :root {
             --bg-color: #f0f2f5;
             --card-bg: #ffffff;
-            --text-primary: #333333;
+            --text-primary: #1c1c1e;
             --text-secondary: #8e8e93;
             --accent-blue: #007aff;
             --accent-red: #ff3b30;
@@ -18,249 +18,395 @@
         }
 
         body {
-            margin: 0; padding: 20px;
+            margin: 0; padding: 0;
             background-color: var(--bg-color); color: var(--text-primary);
-            font-family: "Avenir Next", -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
-            overflow: hidden; width: 100vw; height: 100vh; box-sizing: border-box;
-            display: flex; align-items: center; justify-content: center;
+            font-family: "Avenir Next", -apple-system, system-ui, BlinkMacSystemFont, Roboto, sans-serif;
+            overflow: hidden; width: 100vw; height: 100vh;
         }
 
-        /* --- LAYOUT GRID --- */
-        .dashboard-grid {
+        /* --- PORTRAIT WARNING OVERLAY --- */
+        #portrait-warning {
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            background: #000; color: #fff; z-index: 9999;
+            display: none; /* Hidden by default */
+            flex-direction: column; align-items: center; justify-content: center;
+            text-align: center; padding: 20px;
+        }
+        #portrait-warning svg { width: 60px; height: 60px; margin-bottom: 20px; fill: white; animation: rotatePhone 2s infinite; }
+        @keyframes rotatePhone { 0% { transform: rotate(0deg); } 50% { transform: rotate(-90deg); } 100% { transform: rotate(0deg); } }
+        
+        /* Show warning only in portrait */
+        @media (orientation: portrait) {
+            #portrait-warning { display: flex; }
+            .app-container { display: none; }
+        }
+
+        /* --- SWIPE LAYOUT CONTAINER --- */
+        .app-container {
+            width: 100vw; height: 100vh;
+            overflow-x: scroll; overflow-y: hidden;
+            scroll-snap-type: x mandatory;
+            display: flex;
+            scrollbar-width: none; /* Firefox */
+        }
+        .app-container::-webkit-scrollbar { display: none; /* Chrome/Safari */ }
+
+        /* --- PAGES (SLIDES) --- */
+        .page {
+            min-width: 100vw; height: 100vh;
+            scroll-snap-align: start;
+            padding: 20px; box-sizing: border-box;
+            display: flex; flex-direction: column; justify-content: center;
+        }
+
+        /* --- PAGE 1: GAUGES & CONTROLS --- */
+        .page-1-layout {
             display: grid;
-            grid-template-columns: 1.4fr 1fr;
-            grid-template-rows: 1fr;
-            gap: 20px;
-            width: 100%; height: 100%; max-height: 450px;
+            grid-template-columns: 1fr 1fr; /* Two Gauges side by side */
+            grid-template-rows: 1fr auto;   /* Gauges top, buttons bottom */
+            gap: 20px; height: 100%;
         }
 
-        /* --- CARDS --- */
-        .card {
+        .gauges-container {
+            grid-column: 1 / -1; /* Span both columns */
+            display: flex; justify-content: space-around; align-items: center;
             background: var(--card-bg); border-radius: 24px;
-            box-shadow: 0 8px 24px rgba(0,0,0,0.08);
-            padding: 15px; position: relative; overflow: hidden;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.05);
+            padding: 10px;
         }
 
-        /* --- LEFT PANEL --- */
-        .left-panel { display: grid; grid-template-rows: 2fr 1fr; gap: 15px; }
-        .gauges-row { display: flex; justify-content: space-between; align-items: center; }
+        .controls-container {
+            grid-column: 1 / -1;
+            display: flex; justify-content: center; gap: 20px;
+        }
 
         /* --- GAUGE STYLES --- */
-        .gauge-container { width: 48%; aspect-ratio: 1/1; position: relative; }
-        svg.gauge { width: 100%; height: 100%; }
-        .gauge-tick { stroke: var(--gauge-tick); stroke-linecap: round; }
-        .gauge-text { font-size: 6px; font-weight: 600; fill: var(--text-secondary); text-anchor: middle; dominant-baseline: middle; }
-        .zone-yellow { fill: none; stroke: var(--accent-yellow); stroke-width: 6; opacity: 0.5; }
-        .zone-red { fill: none; stroke: var(--accent-red); stroke-width: 6; opacity: 0.5; }
+        .gauge-wrapper {
+            position: relative;
+            width: 45vh; height: 45vh; /* Responsive to screen height */
+            max-width: 45vw; max-height: 45vw;
+        }
+        svg.gauge { width: 100%; height: 100%; overflow: visible; }
+        
+        .gauge-value {
+            position: absolute; top: 15%; left: 50%; transform: translateX(-50%);
+            font-size: 2rem; font-weight: 800; font-variant-numeric: tabular-nums;
+            z-index: 4; text-shadow: 0 2px 4px rgba(255,255,255,0.8);
+        }
+        
+        .gauge-label {
+            position: absolute; bottom: 15%; left: 50%; transform: translateX(-50%);
+            font-size: 1rem; font-weight: 700; color: var(--text-secondary); letter-spacing: 1px;
+            z-index: 4;
+        }
 
         .car-icon {
             position: absolute; top: 50%; left: 50%;
-            transform: translate(-50%, -50%); /* Centers the element */
-            transition: transform 0.1s cubic-bezier(0.1, 0.7, 1.0, 0.1); /* Smooth movement */
-            z-index: 2;
+            transform: translate(-50%, -50%); /* Center anchor */
+            /* Rotation will be applied via JS inline style */
+            transition: transform 0.1s cubic-bezier(0.1, 0.7, 1.0, 0.1);
+            z-index: 2; pointer-events: none;
         }
-        #roll-car { width: 50%; }
-        #pitch-car { width: 85%; }
+        #roll-car { width: 60%; } /* Rear view */
+        #pitch-car { width: 90%; } /* Side view */
+
+        /* SVG Elements */
+        .gauge-tick { stroke: var(--gauge-tick); stroke-linecap: round; }
+        .zone-yellow { fill: none; stroke: var(--accent-yellow); stroke-width: 6; opacity: 0.5; }
+        .zone-red { fill: none; stroke: var(--accent-red); stroke-width: 6; opacity: 0.5; }
+        .gauge-needle { fill: var(--accent-red); filter: drop-shadow(0px 2px 2px rgba(0,0,0,0.3)); transition: transform 0.1s linear; }
+
+        /* --- PAGE 2: DATA DASHBOARD --- */
+        .page-2-layout {
+            display: grid;
+            grid-template-columns: 1.5fr 1fr;
+            gap: 20px; height: 100%;
+        }
+
+        .graph-card {
+            background: var(--card-bg); border-radius: 24px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.05);
+            padding: 15px; display: flex; flex-direction: column;
+            overflow: hidden;
+        }
         
-        .gauge-title {
-            position: absolute; bottom: 18%; left: 50%; transform: translateX(-50%);
-            font-size: 0.8rem; font-weight: 700; color: var(--text-secondary); letter-spacing: 1px; z-index: 3;
+        .graph-header {
+            font-size: 0.9rem; font-weight: 600; color: var(--text-secondary);
+            margin-bottom: 10px; display: flex; justify-content: space-between;
         }
 
-        /* --- INFO BAR --- */
-        .info-bar { display: flex; justify-content: space-between; align-items: center; padding: 0 15px; }
-        .speed-display { display: flex; align-items: baseline; }
-        .speed-val { font-size: 3rem; font-weight: 800; line-height: 1; }
-        .speed-unit { font-size: 0.9rem; color: var(--text-secondary); margin-left: 5px; font-weight: 600; }
-        .gps-display { text-align: right; font-family: "Menlo", monospace; font-size: 0.75rem; color: var(--text-secondary); line-height: 1.4; }
-
-        /* --- RIGHT PANEL --- */
-        .right-panel { display: flex; flex-direction: column; gap: 15px; }
-        .buttons-row { display: flex; justify-content: flex-end; gap: 10px; }
-        
-        .action-btn {
-            background: #fff; border: 1px solid #e0e0e0; color: var(--accent-blue);
-            padding: 10px 15px; border-radius: 12px; font-weight: 600; font-size: 0.85rem;
-            cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.05); transition: all 0.1s;
+        .info-card {
+            background: var(--card-bg); border-radius: 24px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.05);
+            padding: 20px;
+            display: flex; flex-direction: column; justify-content: center; gap: 20px;
         }
-        .action-btn.primary { background: var(--accent-blue); color: white; border: none; }
-        .action-btn:active { transform: scale(0.96); }
 
-        /* --- RHI GRAPH --- */
-        .graph-wrapper {
-            flex-grow: 1; position: relative; background: #fafafa;
-            border-radius: 16px; border: 1px solid #eee; overflow: hidden;
+        .stat-group { display: flex; flex-direction: column; }
+        .stat-label { font-size: 0.8rem; color: var(--text-secondary); font-weight: 600; text-transform: uppercase; }
+        .stat-value { font-size: 1.5rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+        .stat-value.large { font-size: 3.5rem; line-height: 1; }
+        .stat-unit { font-size: 1rem; color: var(--text-secondary); margin-left: 5px; }
+
+        /* --- BUTTONS --- */
+        .btn {
+            padding: 15px 30px; border-radius: 15px; border: none;
+            font-size: 1rem; font-weight: 600; cursor: pointer;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+            transition: transform 0.1s;
         }
-        canvas#rhiGraph { width: 100%; height: 100%; display: block; }
+        .btn:active { transform: scale(0.95); }
+        .btn-primary { background: var(--accent-blue); color: white; }
+        .btn-secondary { background: white; color: var(--accent-blue); }
+
+        /* --- PAGINATION DOTS --- */
+        .pagination {
+            position: fixed; bottom: 10px; left: 0; width: 100%;
+            display: flex; justify-content: center; gap: 8px; pointer-events: none;
+        }
+        .dot { width: 8px; height: 8px; background: rgba(0,0,0,0.2); border-radius: 50%; }
+        .dot.active { background: var(--accent-blue); }
+
     </style>
 </head>
 <body>
 
-    <div class="dashboard-grid">
-        <div class="left-panel">
-            <div class="card gauges-row">
-                 <div class="gauge-container">
-                    <svg class="gauge" viewBox="0 0 100 100" id="roll-svg"></svg>
-                    <img src="4runner-rear-trans.png" class="car-icon" id="roll-car">
-                    <div class="gauge-title">ROLL</div>
-                </div>
-                <div class="gauge-container">
-                    <svg class="gauge" viewBox="0 0 100 100" id="pitch-svg"></svg>
-                    <img src="4runner-side-trans.png" class="car-icon" id="pitch-car">
-                    <div class="gauge-title">PITCH</div>
-                </div>
-            </div>
+    <div id="portrait-warning">
+        <svg viewBox="0 0 24 24"><path d="M17 1.01L7 1c-1.1 0-2 .9-2 2v18c0 1.1.9 2 2 2h10c1.1 0 2-.9 2-2V3c0-1.1-.9-1.99-2-1.99zM17 19H7V5h10v14z"/></svg>
+        <h3>Please Rotate to Landscape</h3>
+        <p>The dashboard is designed for horizontal view.</p>
+    </div>
 
-            <div class="card info-bar">
-                <div class="speed-display">
-                    <span class="speed-val" id="speedValue">0</span>
-                    <span class="speed-unit">MPH</span>
+    <div class="app-container" id="scroller">
+        
+        <div class="page page-1">
+            <div class="page-1-layout">
+                <div class="gauges-container">
+                    
+                    <div class="gauge-wrapper">
+                        <div class="gauge-value" id="roll-text">0°</div>
+                        <svg class="gauge" viewBox="0 0 100 100" id="roll-svg"></svg>
+                        <img src="4runner-rear-trans.png" class="car-icon" id="roll-car">
+                        <div class="gauge-label">ROLL</div>
+                    </div>
+
+                    <div class="gauge-wrapper">
+                        <div class="gauge-value" id="pitch-text">0°</div>
+                        <svg class="gauge" viewBox="0 0 100 100" id="pitch-svg"></svg>
+                        <img src="4runner-side-trans.png" class="car-icon" id="pitch-car">
+                        <div class="gauge-label">PITCH</div>
+                    </div>
+
                 </div>
-                <div class="gps-display">
-                    <div id="lat">Waiting for GPS...</div>
-                    <div id="lon">--</div>
-                    <div style="color: var(--accent-red); margin-top:2px;">Hard Hits: <span id="hits">0</span></div>
+
+                <div class="controls-container">
+                    <button class="btn btn-secondary" onclick="tareLevel()">Tare Level</button>
+                    <button class="btn btn-primary" onclick="startApp()">Start Dashboard</button>
                 </div>
             </div>
         </div>
 
-        <div class="right-panel">
-            <div class="buttons-row">
-                <button class="action-btn" onclick="tareLevel()">Tare Level</button>
-                <button class="action-btn primary" onclick="startApp()">Start</button>
-            </div>
-            <div class="graph-wrapper">
-                <canvas id="rhiGraph"></canvas>
+        <div class="page page-2">
+            <div class="page-2-layout">
+                
+                <div class="graph-card">
+                    <div class="graph-header">
+                        <span>Ride Harshness Index (m/s²)</span>
+                        <span>Live</span>
+                    </div>
+                    <div style="flex-grow: 1; position: relative; width: 100%;">
+                        <canvas id="rhiGraph"></canvas>
+                    </div>
+                </div>
+
+                <div class="info-card">
+                    <div class="stat-group">
+                        <span class="stat-label">Speed</span>
+                        <div class="stat-value large"><span id="speedValue">0</span><span class="stat-unit">MPH</span></div>
+                    </div>
+                    <div class="stat-group">
+                        <span class="stat-label">Coordinates</span>
+                        <div class="stat-value" style="font-size: 1rem; font-family: monospace;">
+                            <div id="lat">Checking...</div>
+                            <div id="lon">GPS</div>
+                        </div>
+                    </div>
+                    <div class="stat-group">
+                        <span class="stat-label" style="color: var(--accent-red)">Hard Hits (>18)</span>
+                        <div class="stat-value" id="hits" style="color: var(--accent-red)">0</div>
+                    </div>
+                </div>
             </div>
         </div>
+
+    </div>
+
+    <div class="pagination">
+        <div class="dot active" id="dot1"></div>
+        <div class="dot" id="dot2"></div>
     </div>
 
     <script>
         // --- CONFIGURATION ---
+        // Change these if the needle moves the wrong way
+        const rollDirection = 1;  
+        const pitchDirection = 1; 
+
+        // Thresholds
         const yellowThreshold = 30; 
         const redThreshold = 40;    
-        const hardHitThreshold = 18; // m/s^2
+        const hardHitThreshold = 18; 
 
-        // --- GLOBAL VARIABLES ---
+        // --- GLOBAL STATE ---
         let tarePitch = 0;
         let tareRoll = 0;
         let hardHitCount = 0;
         let isRunning = false;
         
-        // RHI Graph Data
-        const maxDataPoints = 300; // 5 seconds @ 60fps (approx)
+        // RHI Data
+        const maxDataPoints = 300; 
         let rhiData = new Array(maxDataPoints).fill(0);
 
+        // Scroll Tracking for Dots
+        const scroller = document.getElementById('scroller');
+        scroller.addEventListener('scroll', () => {
+            const page2 = scroller.scrollWidth / 2;
+            if (scroller.scrollLeft > page2 / 2) {
+                document.getElementById('dot1').classList.remove('active');
+                document.getElementById('dot2').classList.add('active');
+            } else {
+                document.getElementById('dot1').classList.add('active');
+                document.getElementById('dot2').classList.remove('active');
+            }
+        });
 
-        // --- 1. SENSOR LOGIC (IOS & ANDROID) ---
+
+        // --- 1. SENSOR LOGIC ---
         function startApp() {
             if (isRunning) return;
 
-            // 1. Request Wake Lock (Keep screen on)
+            // Wake Lock
             if ('wakeLock' in navigator) {
-                navigator.wakeLock.request('screen').catch(err => console.log('Wake Lock error:', err));
+                navigator.wakeLock.request('screen').catch(console.error);
             }
 
-            // 2. Request Motion Permissions (iOS 13+)
-            if (typeof DeviceMotionEvent.requestPermission === 'function') {
+            // Permissions
+            if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
                 DeviceMotionEvent.requestPermission()
-                    .then(permissionState => {
-                        if (permissionState === 'granted') {
-                            enableSensors();
-                        } else {
-                            alert("Permission denied. Reload and try again.");
-                        }
+                    .then(state => {
+                        if (state === 'granted') enableSensors();
+                        else alert("Permission denied. Reset and try again.");
                     })
                     .catch(console.error);
             } else {
-                // Non-iOS 13+ devices
                 enableSensors();
             }
         }
 
         function enableSensors() {
             isRunning = true;
+            // Note: iOS 13+ requires HTTPS
             window.addEventListener('deviceorientation', handleOrientation);
             window.addEventListener('devicemotion', handleMotion);
             
-            // Start GPS
             if (navigator.geolocation) {
-                navigator.geolocation.watchPosition(updateGPS, handleError, {
-                    enableHighAccuracy: true,
-                    timeout: 5000,
-                    maximumAge: 0
+                navigator.geolocation.watchPosition(updateGPS, err => console.log(err), {
+                    enableHighAccuracy: true, maximumAge: 0
                 });
             }
             
-            // Start Animation Loop for Graph
             requestAnimationFrame(updateGraphLoop);
+            
+            // Visual feedback on button
+            document.querySelector('.btn-primary').innerText = "Running...";
         }
 
         function handleOrientation(event) {
-            // Beta is Pitch (front-to-back), Gamma is Roll (left-to-right)
-            let pitch = event.beta || 0;
-            let roll = event.gamma || 0;
+            // USER REQUEST: "Pitch measured by iPhone is Roll for vehicle"
+            // iPhone Landscape (Home button Right):
+            // Beta = Front-to-Back Tilt (X axis)
+            // Gamma = Left-to-Right Tilt (Y axis)
+            
+            // SWAPPED LOGIC:
+            // Vehicle Roll = Sensor Beta
+            // Vehicle Pitch = Sensor Gamma
+            
+            let rawVehicleRoll = event.beta || 0;
+            let rawVehiclePitch = event.gamma || 0;
 
             // Apply Tare
-            const calibratedPitch = pitch - tarePitch;
-            const calibratedRoll = roll - tareRoll;
+            let currentRoll = (rawVehicleRoll - tareRoll) * rollDirection;
+            let currentPitch = (rawVehiclePitch - tarePitch) * pitchDirection;
 
-            // Rotate Images
-            // Note: CSS rotate() uses degrees. 
-            // We translate -50% -50% to keep it centered, then rotate.
-            document.getElementById('pitch-car').style.transform = 
-                `translate(-50%, -50%) rotate(${-calibratedPitch}deg)`; 
+            // Clamp Visuals (prevents car spinning like a top if phone dropped)
+            // But we keep numbers real
             
+            // Update Text
+            document.getElementById('roll-text').innerText = Math.round(Math.abs(currentRoll)) + "°";
+            document.getElementById('pitch-text').innerText = Math.round(Math.abs(currentPitch)) + "°";
+
+            // Update Car Images (CSS Rotate)
+            // Roll: rotates image Z axis
             document.getElementById('roll-car').style.transform = 
-                `translate(-50%, -50%) rotate(${calibratedRoll}deg)`;
+                `translate(-50%, -50%) rotate(${currentRoll}deg)`;
+            
+            // Pitch: also rotates image Z axis (because it's a side view)
+            document.getElementById('pitch-car').style.transform = 
+                `translate(-50%, -50%) rotate(${-currentPitch}deg)`;
+
+            // Update Needles
+            updateNeedle('roll-svg', currentRoll);
+            updateNeedle('pitch-svg', -currentPitch); // Pitch usually implies nose up = negative rotation visually? adjust as needed
         }
 
-       // --- UPDATED TARE LOGIC ---
+        function updateNeedle(svgId, angle) {
+            const svg = document.getElementById(svgId);
+            const needle = svg.querySelector('.gauge-needle');
+            if(needle) {
+                // Needle is centered at 50,50. We just rotate it.
+                needle.setAttribute('transform', `rotate(${angle}, 50, 50)`);
+            }
+        }
+
+        // --- TARE LOGIC ---
         function tareLevel() {
-            const btn = document.querySelector('button[onclick="tareLevel()"]');
+            const btn = document.querySelector('.btn-secondary');
+            const originalText = btn.innerText;
             
-            // Visual feedback
             btn.innerText = "Steady...";
-            btn.style.backgroundColor = "#ffcc00"; // Turn yellow temporarily
+            btn.style.backgroundColor = "var(--accent-yellow)";
             
-            // Wait 1 second (1000ms) for phone to settle
             setTimeout(() => {
-                // Add a one-time listener that removes itself immediately
                 window.addEventListener('deviceorientation', function handler(event) {
-                    tarePitch = event.beta || 0;
-                    tareRoll = event.gamma || 0;
+                    // Capture based on the SWAPPED logic above
+                    tareRoll = event.beta || 0;
+                    tarePitch = event.gamma || 0;
                     
-                    // Stop listening
                     window.removeEventListener('deviceorientation', handler);
                     
-                    // Reset button
-                    btn.innerText = "Tare Level";
-                    btn.style.backgroundColor = "#fff"; // Back to white
+                    btn.innerText = "Level Set!";
+                    setTimeout(() => { 
+                        btn.innerText = originalText; 
+                        btn.style.backgroundColor = "white";
+                    }, 1000);
                     
-                }, { once: true }); // {once: true} auto-removes the listener!
+                }, { once: true });
             }, 1000);
         }
-        }
 
 
-        // --- 2. RHI / ACCELEROMETER LOGIC ---
+        // --- 2. ACCELEROMETER / RHI ---
         function handleMotion(event) {
-            // Calculate total G-force (ignoring gravity approx)
             const x = event.acceleration.x || 0;
             const y = event.acceleration.y || 0;
             const z = event.acceleration.z || 0;
-
-            // Magnitude vector
             const magnitude = Math.sqrt(x*x + y*y + z*z);
             
-            // Add to data array (push new, remove old)
             rhiData.push(magnitude);
             if(rhiData.length > maxDataPoints) rhiData.shift();
 
-            // Check Hard Hits
             if (magnitude > hardHitThreshold) {
-                // Simple debounce: only count if previous wasn't also a hit (prevent double count)
-                if (rhiData[rhiData.length - 2] < hardHitThreshold) {
+                if (rhiData[rhiData.length - 10] < hardHitThreshold) { // simple debounce
                     hardHitCount++;
                     document.getElementById('hits').innerText = hardHitCount;
                 }
@@ -268,158 +414,130 @@
         }
 
 
-        // --- 3. GPS LOGIC ---
-        function updateGPS(position) {
-            const lat = position.coords.latitude;
-            const lon = position.coords.longitude;
-            let speedMps = position.coords.speed || 0; // Meters per second
-            
-            // Convert to MPH
-            let speedMph = (speedMps * 2.23694).toFixed(0);
-
-            document.getElementById('speedValue').innerText = speedMph;
-            
-            // Format Coordinates (DMS-ish)
-            document.getElementById('lat').innerText = `N ${lat.toFixed(5)}`;
-            document.getElementById('lon').innerText = `W ${Math.abs(lon).toFixed(5)}`;
-        }
-
-        function handleError(error) {
-            console.log("GPS Error: " + error.message);
+        // --- 3. GPS ---
+        function updateGPS(pos) {
+            const s = pos.coords.speed || 0; 
+            document.getElementById('speedValue').innerText = (s * 2.237).toFixed(0);
+            document.getElementById('lat').innerText = `N ${pos.coords.latitude.toFixed(4)}`;
+            document.getElementById('lon').innerText = `W ${Math.abs(pos.coords.longitude).toFixed(4)}`;
         }
 
 
-        // --- 4. CANVAS GRAPH RENDERER ---
+        // --- 4. GRAPH & VISUALS ---
         const canvas = document.getElementById('rhiGraph');
         const ctx = canvas.getContext('2d');
-
+        
         function resizeCanvas() {
-            const dpr = window.devicePixelRatio || 1;
-            const rect = canvas.parentElement.getBoundingClientRect();
-            canvas.width = rect.width * dpr;
-            canvas.height = rect.height * dpr;
-            ctx.scale(dpr, dpr);
-            canvas.logicalWidth = rect.width;
-            canvas.logicalHeight = rect.height;
+            const parent = canvas.parentElement;
+            canvas.width = parent.clientWidth * window.devicePixelRatio;
+            canvas.height = parent.clientHeight * window.devicePixelRatio;
+            ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+            canvas.logicalW = parent.clientWidth;
+            canvas.logicalH = parent.clientHeight;
         }
         window.addEventListener('resize', resizeCanvas);
-        setTimeout(resizeCanvas, 500);
+        setTimeout(resizeCanvas, 500); // Initial delay for layout
 
         function updateGraphLoop() {
-            drawGraph();
-            requestAnimationFrame(updateGraphLoop);
-        }
+            const w = canvas.logicalW; const h = canvas.logicalH;
+            if(!w) { requestAnimationFrame(updateGraphLoop); return; }
 
-        function drawGraph() {
-            const w = canvas.logicalWidth;
-            const h = canvas.logicalHeight;
-            if(!w || !h) return;
+            ctx.clearRect(0,0,w,h);
 
-            ctx.clearRect(0, 0, w, h);
+            // Zones
+            const yScale = h / 20;
+            ctx.fillStyle = "rgba(52, 199, 89, 0.1)"; ctx.fillRect(0, h-(8*yScale), w, 8*yScale);
+            ctx.fillStyle = "rgba(255, 204, 0, 0.1)"; ctx.fillRect(0, h-(16*yScale), w, 8*yScale);
+            ctx.fillStyle = "rgba(255, 59, 48, 0.1)"; ctx.fillRect(0, 0, w, 4*yScale);
 
-            // Draw Zones
-            const yScale = h / 20; // 0 to 20 scale
-            
-            // Green Zone (0-8)
-            ctx.fillStyle = "rgba(52, 199, 89, 0.1)";
-            ctx.fillRect(0, h - (8 * yScale), w, 8 * yScale);
-            // Yellow Zone (8-16)
-            ctx.fillStyle = "rgba(255, 204, 0, 0.1)";
-            ctx.fillRect(0, h - (16 * yScale), w, 8 * yScale);
-            // Red Zone (16-20)
-            ctx.fillStyle = "rgba(255, 59, 48, 0.1)";
-            ctx.fillRect(0, 0, w, 4 * yScale);
-
-            // Draw Data Line
-            ctx.strokeStyle = "#333";
-            ctx.lineWidth = 2;
-            ctx.beginPath();
-            
-            // Map data array to canvas width
-            // We want the newest data on the RIGHT
+            // Line
+            ctx.strokeStyle = "#333"; ctx.lineWidth = 2; ctx.beginPath();
             const step = w / maxDataPoints;
             
-            for (let i = 0; i < rhiData.length; i++) {
-                const x = i * step;
-                // Clamp value to 20 max for graph
+            for(let i=0; i<rhiData.length; i++) {
                 const val = Math.min(rhiData[i], 20);
+                const x = i * step;
                 const y = h - (val * yScale);
-                
-                if (i === 0) ctx.moveTo(x, y);
-                else ctx.lineTo(x, y);
+                if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
             }
             ctx.stroke();
 
-            // Axis Text
-            ctx.fillStyle = "#8e8e93";
-            ctx.font = "10px sans-serif";
-            ctx.textAlign = "right";
-            ctx.fillText("20", 20, (h - 20*yScale) + 10);
-            ctx.fillText("10", 20, (h - 10*yScale) + 3);
-            
-            ctx.textAlign = "center";
-            ctx.fillText("Now", w - 20, h - 5);
+            requestAnimationFrame(updateGraphLoop);
         }
 
-        // --- 5. INITIALIZE GAUGES (SVG) ---
-        // (Same SVG logic as before)
-        const SVG_NS = "http://www.w3.org/2000/svg";
-        const cx = 50, cy = 50, radius = 45;
-
-        function polarToCartesian(centerX, centerY, radius, angleInDegrees) {
-            var angleInRadians = (angleInDegrees-90) * Math.PI / 180.0;
-            return { x: centerX + (radius * Math.cos(angleInRadians)), y: centerY + (radius * Math.sin(angleInRadians)) };
-        }
-        function describeArc(x, y, radius, startAngle, endAngle){
-            var start = polarToCartesian(x, y, radius, endAngle);
-            var end = polarToCartesian(x, y, radius, startAngle);
-            var largeArcFlag = endAngle - startAngle <= 180 ? "0" : "1";
-            return ["M", start.x, start.y, "A", radius, radius, 0, largeArcFlag, 0, end.x, end.y].join(" ");
-        }
-
-        function drawGaugeBackground(svgId) {
+        // --- 5. INITIALIZE SVG GAUGES (WITH NEEDLES) ---
+        function drawGauge(svgId) {
             const svg = document.getElementById(svgId);
-            const zoneRadius = radius - 3;
-            
-            // Yellow Zones (-red to -yellow, and yellow to red)
-            const yellowPath = document.createElementNS(SVG_NS, "path");
-            yellowPath.setAttribute("class", "zone-yellow");
-            const yellowD = describeArc(cx, cy, zoneRadius, -redThreshold, -yellowThreshold) + " " + describeArc(cx, cy, zoneRadius, yellowThreshold, redThreshold);
-            yellowPath.setAttribute("d", yellowD);
-            svg.appendChild(yellowPath);
+            const cx = 50, cy = 50, r = 45;
+            const SVG_NS = "http://www.w3.org/2000/svg";
 
-            // Red Zones
-            const redPath = document.createElementNS(SVG_NS, "path");
-            redPath.setAttribute("class", "zone-red");
-            const redD = describeArc(cx, cy, zoneRadius, -60, -redThreshold) + " " + describeArc(cx, cy, zoneRadius, redThreshold, 60);
-            redPath.setAttribute("d", redD);
-            svg.appendChild(redPath);
+            function polar(angle) {
+                const rad = (angle-90) * Math.PI / 180.0;
+                return { x: cx + (r * Math.cos(rad)), y: cy + (r * Math.sin(rad)) };
+            }
+            function arc(start, end) {
+                const s = polar(end); const e = polar(start);
+                const large = end - start <= 180 ? "0" : "1";
+                return `M ${s.x} ${s.y} A ${r} ${r} 0 ${large} 0 ${e.x} ${e.y}`;
+            }
+
+            // Zones
+            const zR = r - 4; // Inner radius for color zones
+            function zoneArc(start, end, radius) {
+                const radStart = (start-90)*Math.PI/180;
+                const radEnd = (end-90)*Math.PI/180;
+                const x1 = cx + radius*Math.cos(radEnd);
+                const y1 = cy + radius*Math.sin(radEnd);
+                const x2 = cx + radius*Math.cos(radStart);
+                const y2 = cy + radius*Math.sin(radStart);
+                return `M ${x1} ${y1} A ${radius} ${radius} 0 0 0 ${x2} ${y2}`;
+            }
+
+            // Yellow Zone (both sides)
+            const y1 = document.createElementNS(SVG_NS, "path");
+            y1.setAttribute("class", "zone-yellow");
+            y1.setAttribute("d", zoneArc(yellowThreshold, redThreshold, zR) + " " + zoneArc(-redThreshold, -yellowThreshold, zR));
+            svg.appendChild(y1);
+
+            // Red Zone
+            const r1 = document.createElementNS(SVG_NS, "path");
+            r1.setAttribute("class", "zone-red");
+            r1.setAttribute("d", zoneArc(redThreshold, 60, zR) + " " + zoneArc(-60, -redThreshold, zR));
+            svg.appendChild(r1);
 
             // Ticks
-            for (let i = -60; i <= 60; i += 5) {
-                const start = polarToCartesian(cx, cy, radius, i);
-                let tickLen = (i % 15 === 0) ? 6 : 3; 
-                const end = polarToCartesian(cx, cy, radius - tickLen, i);
+            for(let i=-60; i<=60; i+=5) {
+                const p1 = polar(i);
+                const len = (i%15===0)? 6 : 3;
+                const rad = (i-90)*Math.PI/180;
+                const p2 = { x: cx + (r-len)*Math.cos(rad), y: cy + (r-len)*Math.sin(rad) };
+                
                 const line = document.createElementNS(SVG_NS, "line");
-                line.setAttribute("x1", start.x); line.setAttribute("y1", start.y);
-                line.setAttribute("x2", end.x); line.setAttribute("y2", end.y);
+                line.setAttribute("x1", p1.x); line.setAttribute("y1", p1.y);
+                line.setAttribute("x2", p2.x); line.setAttribute("y2", p2.y);
                 line.setAttribute("class", "gauge-tick");
-                line.setAttribute("stroke-width", (i % 15 === 0 || i === 0) ? "1.5" : "0.5");
                 svg.appendChild(line);
-
-                if (i !== 0 && i % 15 === 0) {
-                     const textPos = polarToCartesian(cx, cy, radius - 12, i);
-                     const text = document.createElementNS(SVG_NS, "text");
-                     text.setAttribute("x", textPos.x); text.setAttribute("y", textPos.y + 1);
-                     text.setAttribute("class", "gauge-text");
-                     text.textContent = Math.abs(i);
-                     text.setAttribute("transform", `rotate(${i}, ${textPos.x}, ${textPos.y})`);
-                     svg.appendChild(text);
-                }
             }
+
+            // NEEDLE (Triangle)
+            // It points UP by default (0 degrees)
+            const needle = document.createElementNS(SVG_NS, "polygon");
+            // Triangle tip at top (radius), base slightly below
+            // r=45. Tip at 50, 5 (cx, cy-r). 
+            // Actually, let's make it a small triangle ON the rim
+            // Tip at radius 48, base at radius 40
+            const tipY = cy - r - 2; // Outside slightly
+            const baseY = cy - r + 5; 
+            const pts = `50,${tipY} 47,${baseY} 53,${baseY}`;
+            
+            needle.setAttribute("points", pts);
+            needle.setAttribute("class", "gauge-needle");
+            svg.appendChild(needle);
         }
-        drawGaugeBackground('pitch-svg');
-        drawGaugeBackground('roll-svg');
+
+        drawGauge('roll-svg');
+        drawGauge('pitch-svg');
+
     </script>
 </body>
 </html>

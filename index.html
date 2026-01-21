@@ -23,7 +23,8 @@
             font-family: "Avenir Next", -apple-system, system-ui, BlinkMacSystemFont, Roboto, sans-serif;
             overflow: hidden; 
             width: 100vw; 
-            height: 100dvh; /* Dynamic viewport height fixes Safari bottom cutoff */
+            /* Use dynamic viewport height to fix Safari bottom bar cutoff */
+            height: 100dvh; 
         }
 
         /* --- PORTRAIT WARNING OVERLAY --- */
@@ -78,18 +79,18 @@
         .controls-container {
             grid-column: 1 / -1;
             display: flex; justify-content: center; gap: 20px;
-            padding-bottom: 20px; /* Space for dots */
+            padding-bottom: 20px;
         }
 
         /* --- GAUGE STYLES --- */
         .gauge-wrapper {
             position: relative;
-            width: 42vh; height: 42vh; /* Adjusted for fit */
+            width: 42vh; height: 42vh;
             max-width: 45vw; max-height: 45vw;
         }
         svg.gauge { width: 100%; height: 100%; overflow: visible; }
         
-        /* NUMBERS MOVED UP */
+        /* NUMBERS MOVED TO TOP EDGE */
         .gauge-value {
             position: absolute; top: 0%; left: 50%; transform: translateX(-50%);
             font-size: 2.2rem; font-weight: 800; font-variant-numeric: tabular-nums;
@@ -105,14 +106,14 @@
         /* CAR IMAGES: BIGGER & LOWER */
         .car-icon {
             position: absolute; 
-            top: 60%; /* Moved down from center */
+            top: 60%; /* Moved down */
             left: 50%;
-            transform: translate(-50%, -50%); /* Anchor point */
+            transform: translate(-50%, -50%);
             transition: transform 0.1s cubic-bezier(0.1, 0.7, 1.0, 0.1);
             z-index: 2; pointer-events: none;
         }
-        #roll-car { width: 75%; }  /* 20% Bigger */
-        #pitch-car { width: 100%; } /* 20% Bigger */
+        #roll-car { width: 75%; }  /* Increased size */
+        #pitch-car { width: 100%; } /* Increased size */
 
         .gauge-tick { stroke: var(--gauge-tick); stroke-linecap: round; }
         .zone-yellow { fill: none; stroke: var(--accent-yellow); stroke-width: 6; opacity: 0.5; }
@@ -122,7 +123,7 @@
         /* --- PAGE 2: GRAPH & DATA --- */
         .page-2-layout {
             display: grid;
-            /* CHANGED: 3fr for graph, 1fr for info (thinner info box) */
+            /* CHANGED: 3fr for graph, 1fr for info (Thinner box, Wider graph) */
             grid-template-columns: 3fr 1fr; 
             gap: 15px; height: 100%;
         }
@@ -131,8 +132,7 @@
             background: var(--card-bg); border-radius: 24px;
             box-shadow: 0 4px 20px rgba(0,0,0,0.05);
             padding: 15px; display: flex; flex-direction: column;
-            overflow: hidden; /* Fixes cutoff */
-            height: 100%;
+            overflow: hidden; height: 100%;
         }
         
         .graph-header {
@@ -322,15 +322,13 @@
 
         function handleOrientation(event) {
             // Note: iPhone Landscape Sensors (Beta=Front/Back, Gamma=Left/Right)
-            // But we display Pitch on Right Gauge, Roll on Left Gauge.
             
             let rawBeta = event.beta || 0;
             let rawGamma = event.gamma || 0;
 
             // Apply Tare & Direction Flip
-            // Beta (Front/Back) drives Pitch display
+            // Beta (Front/Back) drives Pitch display (swapped per your request)
             // Gamma (Left/Right) drives Roll display
-            // We use the raw values relative to tare, then flip sign
             
             let currentPitch = (rawBeta - tarePitch) * pitchDirection;
             let currentRoll = (rawGamma - tareRoll) * rollDirection;
@@ -345,9 +343,6 @@
                 `translate(-50%, -50%) rotate(${currentRoll}deg)`;
             
             // Pitch: Z axis rotation (side view)
-            // Pitching UP (positive degrees) usually looks like nose up in CSS rotation? 
-            // -currentPitch often feels more natural for side view (nose up = counter-clockwise)
-            // Let's try direct mapping first since we inverted direction globally.
             document.getElementById('pitch-car').style.transform = 
                 `translate(-50%, -50%) rotate(${-currentPitch}deg)`;
 
@@ -368,7 +363,6 @@
         // --- TARE LOGIC (FIXED) ---
         function tareLevel() {
             const btn = document.querySelector('.btn-secondary');
-            const originalText = btn.innerText;
             
             btn.innerText = "Steady...";
             btn.style.backgroundColor = "var(--accent-yellow)";
@@ -376,7 +370,7 @@
             setTimeout(() => {
                 window.addEventListener('deviceorientation', function handler(event) {
                     
-                    // Capture RAW values for tare (no inversion applied yet)
+                    // Capture RAW values for tare
                     tarePitch = event.beta || 0;
                     tareRoll = event.gamma || 0;
                     

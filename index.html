@@ -23,11 +23,10 @@
             font-family: "Avenir Next", -apple-system, system-ui, BlinkMacSystemFont, Roboto, sans-serif;
             overflow: hidden; 
             width: 100vw; 
-            /* Use dynamic viewport height to fix Safari bottom bar cutoff */
-            height: 100dvh; 
+            height: 100dvh; /* Fixes Safari bottom bar issue */
         }
 
-        /* --- PORTRAIT WARNING OVERLAY --- */
+        /* --- PORTRAIT WARNING --- */
         #portrait-warning {
             position: fixed; top: 0; left: 0; width: 100vw; height: 100dvh;
             background: #000; color: #fff; z-index: 9999;
@@ -42,7 +41,7 @@
             .app-container { display: none; }
         }
 
-        /* --- SWIPE LAYOUT CONTAINER --- */
+        /* --- SWIPE CONTAINER --- */
         .app-container {
             width: 100vw; height: 100dvh;
             overflow-x: scroll; overflow-y: hidden;
@@ -90,7 +89,7 @@
         }
         svg.gauge { width: 100%; height: 100%; overflow: visible; }
         
-        /* NUMBERS MOVED TO TOP EDGE */
+        /* Digital Value at TOP Edge */
         .gauge-value {
             position: absolute; top: 0%; left: 50%; transform: translateX(-50%);
             font-size: 2.2rem; font-weight: 800; font-variant-numeric: tabular-nums;
@@ -103,28 +102,25 @@
             z-index: 4;
         }
 
-        /* CAR IMAGES: BIGGER & LOWER */
+        /* Car Images */
         .car-icon {
-            position: absolute; 
-            top: 60%; /* Moved down */
-            left: 50%;
+            position: absolute; top: 60%; left: 50%;
             transform: translate(-50%, -50%);
             transition: transform 0.1s cubic-bezier(0.1, 0.7, 1.0, 0.1);
             z-index: 2; pointer-events: none;
         }
-        #roll-car { width: 75%; }  /* Increased size */
-        #pitch-car { width: 100%; } /* Increased size */
+        #roll-car { width: 75%; }
+        #pitch-car { width: 100%; }
 
         .gauge-tick { stroke: var(--gauge-tick); stroke-linecap: round; }
         .zone-yellow { fill: none; stroke: var(--accent-yellow); stroke-width: 6; opacity: 0.5; }
         .zone-red { fill: none; stroke: var(--accent-red); stroke-width: 6; opacity: 0.5; }
         .gauge-needle { fill: var(--accent-red); filter: drop-shadow(0px 2px 2px rgba(0,0,0,0.3)); transition: transform 0.1s linear; }
 
-        /* --- PAGE 2: GRAPH & DATA --- */
+        /* --- PAGE 2: WIDE GRAPH --- */
         .page-2-layout {
             display: grid;
-            /* CHANGED: 3fr for graph, 1fr for info (Thinner box, Wider graph) */
-            grid-template-columns: 3fr 1fr; 
+            grid-template-columns: 3fr 1fr; /* Wide Graph, Thin Info */
             gap: 15px; height: 100%;
         }
 
@@ -252,7 +248,7 @@
 
     <script>
         // --- CONFIGURATION ---
-        // INVERTED: -1 flips the direction
+        // Direction Multiplier (-1 flips direction)
         const rollDirection = -1;  
         const pitchDirection = -1; 
 
@@ -265,7 +261,7 @@
         let tarePitch = 0;
         let tareRoll = 0;
         let hardHitCount = 0;
-        let lastHitTime = 0; // For debounce
+        let lastHitTime = 0; 
         let isRunning = false;
         
         // RHI Data
@@ -317,32 +313,29 @@
             
             requestAnimationFrame(updateGraphLoop);
             document.querySelector('.btn-primary').innerText = "Running";
-            document.querySelector('.btn-primary').style.background = "#34c759"; // Green
+            document.querySelector('.btn-primary').style.background = "#34c759";
         }
 
         function handleOrientation(event) {
-            // Note: iPhone Landscape Sensors (Beta=Front/Back, Gamma=Left/Right)
-            
             let rawBeta = event.beta || 0;
             let rawGamma = event.gamma || 0;
 
-            // Apply Tare & Direction Flip
-            // Beta (Front/Back) drives Pitch display (swapped per your request)
-            // Gamma (Left/Right) drives Roll display
+            // --- AXIS SWAP LOGIC ---
+            // Beta (Front/Back tilt) -> Maps to Vehicle Roll
+            // Gamma (Left/Right tilt) -> Maps to Vehicle Pitch
+            // (Used when phone is mounted flat or in specific orientations)
             
-            let currentPitch = (rawBeta - tarePitch) * pitchDirection;
-            let currentRoll = (rawGamma - tareRoll) * rollDirection;
+            let currentRoll = (rawBeta - tareRoll) * rollDirection;
+            let currentPitch = (rawGamma - tarePitch) * pitchDirection;
 
             // Update Text
             document.getElementById('roll-text').innerText = Math.round(currentRoll) + "°";
             document.getElementById('pitch-text').innerText = Math.round(currentPitch) + "°";
 
-            // Update Car Images (CSS Rotate)
-            // Roll: Z axis rotation
+            // Update Car Images
             document.getElementById('roll-car').style.transform = 
                 `translate(-50%, -50%) rotate(${currentRoll}deg)`;
             
-            // Pitch: Z axis rotation (side view)
             document.getElementById('pitch-car').style.transform = 
                 `translate(-50%, -50%) rotate(${-currentPitch}deg)`;
 
@@ -355,7 +348,6 @@
             const svg = document.getElementById(svgId);
             const needle = svg.querySelector('.gauge-needle');
             if(needle) {
-                // Needle is centered at 50,50. 
                 needle.setAttribute('transform', `rotate(${angle}, 50, 50)`);
             }
         }
@@ -370,14 +362,14 @@
             setTimeout(() => {
                 window.addEventListener('deviceorientation', function handler(event) {
                     
-                    // Capture RAW values for tare
-                    tarePitch = event.beta || 0;
-                    tareRoll = event.gamma || 0;
+                    // Capture raw values based on the same mapping!
+                    // tareRoll captures Beta, tarePitch captures Gamma
+                    tareRoll = event.beta || 0;
+                    tarePitch = event.gamma || 0;
                     
                     window.removeEventListener('deviceorientation', handler);
                     
-                    // FORCE UPDATE VISUALS IMMEDIATELY
-                    // This prevents the "sticky image" bug
+                    // Force Zero Visuals
                     document.getElementById('roll-text').innerText = "0°";
                     document.getElementById('pitch-text').innerText = "0°";
                     document.getElementById('roll-car').style.transform = "translate(-50%, -50%) rotate(0deg)";
@@ -406,11 +398,9 @@
             rhiData.push(magnitude);
             if(rhiData.length > maxDataPoints) rhiData.shift();
 
-            // HARD HIT LOGIC (DEBOUNCED)
             if (magnitude > hardHitThreshold) {
                 const now = Date.now();
-                // Check if 1 second (1000ms) has passed since last hit
-                if (now - lastHitTime > 1000) {
+                if (now - lastHitTime > 1000) { // 1-second debounce
                     hardHitCount++;
                     document.getElementById('hits').innerText = hardHitCount;
                     lastHitTime = now;
@@ -500,19 +490,16 @@
             }
 
             const zR = r - 4; 
-            // Yellow Zone
             const y1 = document.createElementNS(SVG_NS, "path");
             y1.setAttribute("class", "zone-yellow");
             y1.setAttribute("d", zoneArc(yellowThreshold, redThreshold, zR) + " " + zoneArc(-redThreshold, -yellowThreshold, zR));
             svg.appendChild(y1);
 
-            // Red Zone
             const r1 = document.createElementNS(SVG_NS, "path");
             r1.setAttribute("class", "zone-red");
             r1.setAttribute("d", zoneArc(redThreshold, 60, zR) + " " + zoneArc(-60, -redThreshold, zR));
             svg.appendChild(r1);
 
-            // Ticks
             for(let i=-60; i<=60; i+=5) {
                 const p1 = polar(i);
                 const len = (i%15===0)? 6 : 3;
@@ -526,7 +513,6 @@
                 svg.appendChild(line);
             }
 
-            // NEEDLE (Triangle on Rim)
             const tipY = cy - r - 2; 
             const baseY = cy - r + 5; 
             const pts = `50,${tipY} 47,${baseY} 53,${baseY}`;

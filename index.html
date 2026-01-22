@@ -6,7 +6,7 @@
     
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <title>Off-Road Dashboard</title>
+    <title>Off-Road Dashboard (Portrait)</title>
     
     <link rel="apple-touch-icon" href="app-icon.png">
 
@@ -29,22 +29,23 @@
             font-family: "Avenir Next", -apple-system, system-ui, BlinkMacSystemFont, Roboto, sans-serif;
             overflow: hidden; 
             width: 100vw; 
-            height: 100dvh; /* Fixes Safari bottom bar issue */
+            height: 100dvh; 
             -webkit-user-select: none; user-select: none;
         }
 
-        /* --- PORTRAIT WARNING --- */
-        #portrait-warning {
+        /* --- LANDSCAPE WARNING (New!) --- */
+        #landscape-warning {
             position: fixed; top: 0; left: 0; width: 100vw; height: 100dvh;
             background: #000; color: #fff; z-index: 9999;
             display: none; flex-direction: column; align-items: center; justify-content: center;
             text-align: center; padding: 20px;
         }
-        #portrait-warning svg { width: 60px; height: 60px; margin-bottom: 20px; fill: white; animation: rotatePhone 2s infinite; }
-        @keyframes rotatePhone { 0% { transform: rotate(0deg); } 50% { transform: rotate(-90deg); } 100% { transform: rotate(0deg); } }
+        #landscape-warning svg { width: 60px; height: 60px; margin-bottom: 20px; fill: white; animation: rotatePhone 2s infinite; }
+        @keyframes rotatePhone { 0% { transform: rotate(-90deg); } 50% { transform: rotate(0deg); } 100% { transform: rotate(-90deg); } }
         
-        @media (orientation: portrait) {
-            #portrait-warning { display: flex; }
+        /* Show warning only if user rotates to landscape */
+        @media (orientation: landscape) {
+            #landscape-warning { display: flex; }
             .app-container { display: none; }
         }
 
@@ -64,52 +65,53 @@
             scroll-snap-align: start;
             padding: 15px; box-sizing: border-box;
             display: flex; flex-direction: column; justify-content: center;
-            position: relative; /* Context for version number */
+            position: relative;
         }
 
         /* --- VERSION NUMBER --- */
         .version-number {
-            position: absolute;
-            bottom: 15px;
-            right: 25px;
-            font-size: 0.75rem;
-            color: var(--text-secondary);
-            opacity: 0.5;
-            font-family: "Menlo", monospace;
-            pointer-events: none;
+            position: absolute; bottom: 10px; right: 15px;
+            font-size: 0.7rem; color: var(--text-secondary); opacity: 0.5;
+            font-family: "Menlo", monospace; pointer-events: none;
         }
 
-        /* --- PAGE 1: GAUGES --- */
+        /* --- PAGE 1: GAUGES (STACKED) --- */
         .page-1-layout {
             display: grid;
-            grid-template-columns: 1fr 1fr;
-            grid-template-rows: 1fr auto;
-            gap: 15px; height: 100%;
-        }
-
-        .gauges-container {
-            grid-column: 1 / -1;
-            display: flex; justify-content: space-around; align-items: center;
-            background: var(--card-bg); border-radius: 24px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.05);
-            padding: 10px; position: relative;
-        }
-
-        .controls-container {
-            grid-column: 1 / -1;
-            display: flex; justify-content: center; gap: 20px;
+            /* CHANGED: 1 column, rows for gauges + controls */
+            grid-template-columns: 1fr; 
+            grid-template-rows: 1fr 1fr auto; 
+            gap: 10px; height: 100%;
             padding-bottom: 20px;
         }
 
-        /* --- GAUGE STYLES --- */
+        .gauges-container {
+            /* Now spans 1 column, but we don't need the container styling as much in vertical stack */
+            display: contents; /* Lets children participate in main grid */
+        }
+
+        /* Wrapper for each gauge to center it */
+        .gauge-wrapper-cell {
+            display: flex; justify-content: center; align-items: center;
+            background: var(--card-bg); border-radius: 24px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.05);
+            position: relative;
+        }
+
+        .controls-container {
+            display: flex; justify-content: center; gap: 20px;
+            padding-top: 10px;
+        }
+
+        /* --- GAUGE VISUALS --- */
         .gauge-wrapper {
             position: relative;
-            width: 40vh; height: 40vh;
-            max-width: 45vw; max-height: 45vw;
+            /* Scaled for portrait width */
+            width: 75vw; height: 75vw;
+            max-width: 35vh; max-height: 35vh;
         }
         svg.gauge { width: 100%; height: 100%; overflow: visible; }
         
-        /* NUMBERS AT TOP EDGE */
         .gauge-value {
             position: absolute; top: 0%; left: 50%; transform: translateX(-50%);
             font-size: 2.2rem; font-weight: 800; font-variant-numeric: tabular-nums;
@@ -122,11 +124,8 @@
             z-index: 4;
         }
 
-        /* CAR IMAGES */
         .car-icon {
-            position: absolute; 
-            top: 60%; 
-            left: 50%;
+            position: absolute; top: 60%; left: 50%;
             transform: translate(-50%, -50%);
             transition: transform 0.1s cubic-bezier(0.1, 0.7, 1.0, 0.1);
             z-index: 2; pointer-events: none;
@@ -139,11 +138,14 @@
         .zone-red { fill: none; stroke: var(--accent-red); stroke-width: 6; opacity: 0.5; }
         .gauge-needle { fill: var(--accent-red); filter: drop-shadow(0px 2px 2px rgba(0,0,0,0.3)); transition: transform 0.1s linear; }
 
-        /* --- PAGE 2: WIDE GRAPH --- */
+        /* --- PAGE 2: GRAPH (STACKED) --- */
         .page-2-layout {
             display: grid;
-            grid-template-columns: 3fr 1fr; 
+            /* CHANGED: Stacked Rows (Graph on top, Info below) */
+            grid-template-columns: 1fr;
+            grid-template-rows: 1.5fr 1fr; 
             gap: 15px; height: 100%;
+            padding-bottom: 20px;
         }
 
         .graph-card {
@@ -162,7 +164,17 @@
             background: var(--card-bg); border-radius: 24px;
             box-shadow: 0 4px 20px rgba(0,0,0,0.05);
             padding: 15px;
-            display: flex; flex-direction: column; justify-content: space-evenly; 
+            /* Grid layout for info items in portrait */
+            display: grid; grid-template-columns: 1fr 1fr; gap: 15px;
+            align-items: center;
+        }
+
+        /* Make the Hard Hits span full width in the info card */
+        .info-card .stat-group:last-child {
+            grid-column: 1 / -1;
+            align-items: center;
+            border-top: 1px solid #f0f0f0;
+            padding-top: 10px;
         }
 
         .stat-group { display: flex; flex-direction: column; }
@@ -194,31 +206,33 @@
 </head>
 <body>
 
-    <div id="portrait-warning">
+    <div id="landscape-warning">
         <svg viewBox="0 0 24 24"><path d="M17 1.01L7 1c-1.1 0-2 .9-2 2v18c0 1.1.9 2 2 2h10c1.1 0 2-.9 2-2V3c0-1.1-.9-1.99-2-1.99zM17 19H7V5h10v14z"/></svg>
-        <h3>Please Rotate to Landscape</h3>
+        <h3>Please Rotate to Portrait</h3>
+        <p>Keep phone vertical.</p>
     </div>
 
     <div class="app-container" id="scroller">
         
         <div class="page page-1">
             <div class="page-1-layout">
-                <div class="gauges-container">
-                    
+                
+                <div class="gauge-wrapper-cell">
                     <div class="gauge-wrapper">
                         <div class="gauge-value" id="roll-text">0°</div>
                         <svg class="gauge" viewBox="0 0 100 100" id="roll-svg"></svg>
                         <img src="4runner-rear-trans.png" class="car-icon" id="roll-car">
-                        <div class="gauge-label"></div>
+                        <div class="gauge-label">ROLL</div>
                     </div>
+                </div>
 
+                <div class="gauge-wrapper-cell">
                     <div class="gauge-wrapper">
                         <div class="gauge-value" id="pitch-text">0°</div>
                         <svg class="gauge" viewBox="0 0 100 100" id="pitch-svg"></svg>
                         <img src="4runner-side-trans.png" class="car-icon" id="pitch-car">
-                        <div class="gauge-label"></div>
+                        <div class="gauge-label">PITCH</div>
                     </div>
-
                 </div>
 
                 <div class="controls-container">
@@ -226,8 +240,7 @@
                     <button class="btn btn-primary" onclick="startApp()">Start</button>
                 </div>
             </div>
-            
-            <div class="version-number">v2.6</div>
+            <div class="version-number">v2.0-Portrait</div>
         </div>
 
         <div class="page page-2">
@@ -250,7 +263,7 @@
                     </div>
                     <div class="stat-group">
                         <span class="stat-label">GPS</span>
-                        <div class="stat-value" style="font-size: 0.9rem; font-family: monospace; line-height: 1.2;">
+                        <div class="stat-value" style="font-size: 0.85rem; font-family: monospace; line-height: 1.2;">
                             <div id="lat">N --.----</div>
                             <div id="lon">W ---.----</div>
                         </div>
@@ -272,11 +285,12 @@
 
     <script>
         // --- CONFIGURATION ---
-        // For Vertical Landscape Mount (Screen facing driver):
-        // BETA (X-Axis) maps to ROLL
-        // GAMMA (Y-Axis) maps to PITCH
-        const rollDirection = -1;  
-        const pitchDirection = -1; 
+        // PORTRAIT MODE LOGIC:
+        // BETA (Front/Back Tilt) = PITCH
+        // GAMMA (Left/Right Tilt) = ROLL
+        // Direction Multiplier (-1 flips direction)
+        const rollDirection = 1;  
+        const pitchDirection = 1; 
 
         // Thresholds
         const yellowThreshold = 30; 
@@ -309,7 +323,6 @@
         // --- 1. SENSOR LOGIC ---
         function startApp() {
             if (isRunning) return;
-
             if ('wakeLock' in navigator) navigator.wakeLock.request('screen').catch(console.error);
 
             if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
@@ -341,12 +354,14 @@
         }
 
         function handleOrientation(event) {
+            // PORTRAIT MAPPING
+            // Beta = X Axis (Front/Back) -> Pitch
+            // Gamma = Y Axis (Left/Right) -> Roll
             let rawBeta = event.beta || 0;
             let rawGamma = event.gamma || 0;
 
-            // --- AXIS SWAP LOGIC (Vertical Landscape) ---
-            let currentRoll = (rawBeta - tareRoll) * rollDirection;
-            let currentPitch = (rawGamma - tarePitch) * pitchDirection;
+            let currentPitch = (rawBeta - tarePitch) * pitchDirection;
+            let currentRoll = (rawGamma - tareRoll) * rollDirection;
 
             // Update Text
             document.getElementById('roll-text').innerText = Math.round(currentRoll) + "°";
@@ -356,6 +371,8 @@
             document.getElementById('roll-car').style.transform = 
                 `translate(-50%, -50%) rotate(${currentRoll}deg)`;
             
+            // Pitch (Side View): Positive Pitch is Nose Up
+            // Usually we rotate UP (counter-clockwise) for nose up
             document.getElementById('pitch-car').style.transform = 
                 `translate(-50%, -50%) rotate(${-currentPitch}deg)`;
 
@@ -382,9 +399,9 @@
             setTimeout(() => {
                 window.addEventListener('deviceorientation', function handler(event) {
                     
-                    // Capture raw values based on the same SWAPPED mapping!
-                    tareRoll = event.beta || 0;
-                    tarePitch = event.gamma || 0;
+                    // Capture raw values (Portrait Mapping)
+                    tarePitch = event.beta || 0;
+                    tareRoll = event.gamma || 0;
                     
                     window.removeEventListener('deviceorientation', handler);
                     
@@ -419,7 +436,7 @@
 
             if (magnitude > hardHitThreshold) {
                 const now = Date.now();
-                if (now - lastHitTime > 1000) { // 1-second debounce
+                if (now - lastHitTime > 1000) { 
                     hardHitCount++;
                     document.getElementById('hits').innerText = hardHitCount;
                     lastHitTime = now;
